@@ -769,7 +769,7 @@ endif
 ifeq ($(KBUILD_EXTMOD),)
 # Objects we will link into vmlinux / subdirs we need to visit
 core-y		:=
-drivers-y	:=
+drivers-y	:= techpack/
 libs-y		:= lib/
 endif # KBUILD_EXTMOD
 
@@ -1266,6 +1266,7 @@ endif
 	$(Q)for d in $(ext-mod-dirs); do \
 		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
 	done
+	$(Q)$(MAKE) $(hdr-inst)=techpack
 
 # ---------------------------------------------------------------------------
 # Devicetree files
