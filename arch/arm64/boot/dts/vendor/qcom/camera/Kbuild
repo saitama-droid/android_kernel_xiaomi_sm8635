@@ -1,4 +1,4 @@
-DTC_INCLUDE += $(srctree)/../sm8635-modules/qcom/opensource/camera-kernel
+DTC_INCLUDE += $(srctree)/techpack/camera-kernel
 
 include $(srctree)/$(src)/config/pineapple.mk
 
