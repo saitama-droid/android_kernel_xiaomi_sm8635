@@ -1,4 +1,4 @@
-DTC_INCLUDE += $(srctree)/../sm8635-modules/qcom/opensource/synx-kernel
+DTC_INCLUDE += $(srctree)/techpack/synx-kernel
 
 include $(srctree)/$(src)/config/pineapple.mk
 
