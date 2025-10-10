@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+MSM_HW_FENCE_ROOT ?= $(src)
+
 KDIR := $(TOP)/kernel_platform/msm-kernel
-include $(MSM_HW_FENCE_ROOT)/config/kalamammdrivers.conf
-LINUXINCLUDE += -include $(MSM_HW_FENCE_ROOT)/config/kalamammdriversconf.h \
-		-I$(MSM_HW_FENCE_ROOT)hw_fence/include/
+include $(MSM_HW_FENCE_ROOT)/../config/kalamammdrivers.conf
+LINUXINCLUDE += -include $(srctree)/$(MSM_HW_FENCE_ROOT)/../config/kalamammdriversconf.h \
+		-I$(srctree)/$(MSM_HW_FENCE_ROOT)/include/ \
+		-I$(srctree)/techpack/synx-kernel/msm/synx/ \
+		-I$(srctree)/techpack/synx-kernel/include/uapi/synx/media/
 
 ifdef CONFIG_QTI_HW_FENCE
 obj-m += msm_hw_fence.o
@@ -15,8 +19,6 @@ msm_hw_fence-y := src/msm_hw_fence.o \
 		src/hw_fence_drv_ipc.o
 
 ifneq ($(CONFIG_ARCH_KALAMA), y)
-LINUXINCLUDE += -I$(MSM_HW_FENCE_ROOT)/../synx-kernel/msm/synx/ \
-		-I$(MSM_HW_FENCE_ROOT)/../synx-kernel/include/uapi/synx/media/
 msm_hw_fence-y += src/msm_hw_fence_synx_translation.o
 endif
 

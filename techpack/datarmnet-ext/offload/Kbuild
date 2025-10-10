@@ -1,4 +1,7 @@
 obj-m += rmnet_offload.o
+
+RMNET_CORE_INC_DIR := $(srctree)/techpack/datarmnet/core
+
 #Need core headers
 ccflags-y := -I$(RMNET_CORE_INC_DIR) \
              $(call cc-option,-Wno-misleading-indentation)
