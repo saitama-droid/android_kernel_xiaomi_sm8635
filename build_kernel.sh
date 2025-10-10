@@ -151,55 +151,71 @@ elif [ -f "$ZIMAGE_DIR/Image" ]; then
     cp -v "$ZIMAGE_DIR/Image" "$TEMP_ANY_KERNEL_DIR/"
 fi
 
-# Handle _modules directory
+# Handle module separation based on system_dlkm.txt and vendor_dlkm.txt
 if [ $BUILD_HAS_MODULES -gt 0 ]; then
-    echo "Preparing _modules directory..."
+    echo "Preparing module directories..."
 
-    # Check if _modules exists in template
-    if [ -d "$TEMP_ANY_KERNEL_DIR/_modules" ]; then
-        echo "Found existing _modules directory, clearing contents..."
-        rm -f "$TEMP_ANY_KERNEL_DIR/_modules"/*.ko
+    # Create both _modules_system and _modules_vendor directories
+    mkdir -p "$TEMP_ANY_KERNEL_DIR/_modules_system"
+    mkdir -p "$TEMP_ANY_KERNEL_DIR/_modules_vendor"
+
+    # Read system module list
+    if [ -f "$KERNEL_DIR/system_dlkm.txt" ]; then
+        echo "Reading system_dlkm.txt..."
+        SYSTEM_MODULES=$(grep "\.ko$" "$KERNEL_DIR/system_dlkm.txt" | tr '\n' ' ')
     else
-        echo "Creating _modules directory..."
-        mkdir -p "$TEMP_ANY_KERNEL_DIR/_modules"
+        echo "Warning: system_dlkm.txt not found!"
+        SYSTEM_MODULES=""
     fi
 
-    # List of specific modules to include
-    IMPORTANT_MODULES=(
-        "cnss_nl.ko" "cnss_plat_ipc_qmi_svc.ko" "cnss_prealloc.ko" "cnss_utils.ko" "cnss2.ko"
-        "goodix_ts.ko" "icnss2.ko" "ipam.ko" "ipanetm.ko"
-        "lpass_cdc_dlkm.ko" "lpass_cdc_rx_macro_dlkm.ko" "lpass_cdc_tx_macro_dlkm.ko"
-        "lpass_cdc_va_macro_dlkm.ko" "lpass_cdc_wsa_macro_dlkm.ko" "lpass_cdc_wsa2_macro_dlkm.ko"
-        "msm_drm.ko" "msm_kgsl.ko" "mi_thermal_interface.ko"
-        "qti_cpufreq_cdev.ko" "qti_devfreq_cdev.ko" "rmnet_offload.ko" "rmnet_shs.ko"
-        "smcinvoke_dlkm.ko" "wcd_core_dlkm.ko" "wcd9xxx_dlkm.ko"
-        "wcd937x_dlkm.ko" "wcd937x_slave_dlkm.ko" "wcd938x_dlkm.ko"
-        "wcd938x_slave_dlkm.ko" "wcd939x_dlkm.ko" "wcd939x_slave_dlkm.ko"
-        "wlan_firmware_service.ko" "xiaomi_touch.ko" "fs19xx_dlkm.ko" "aw882xx_dlkm.ko" "qca_cld3_kiwi_v2.ko"
-        "spf_core_dlkm.ko" "snd_event_dlkm.ko" "gpr_dlkm.ko" "panel_event_notifier.ko" "machine_dlkm.ko" "focaltech_3683g.ko"
-    )
+    # Read vendor module list
+    if [ -f "$KERNEL_DIR/vendor_dlkm.txt" ]; then
+        echo "Reading vendor_dlkm.txt..."
+        VENDOR_MODULES=$(grep "\.ko$" "$KERNEL_DIR/vendor_dlkm.txt" | tr '\n' ' ')
+    else
+        echo "Warning: vendor_dlkm.txt not found!"
+        VENDOR_MODULES=""
+    fi
 
-    # Find and copy each specified module
-    for module in "${IMPORTANT_MODULES[@]}"; do
-        find "$MODULES_DIR/lib/modules" -name "$module" -exec cp -v {} "$TEMP_ANY_KERNEL_DIR/_modules/" \;
+    # Find all built modules
+    echo "Sorting modules..."
+    system_count=0
+    vendor_count=0
+    unclassified_count=0
+
+    find "$MODULES_DIR/lib/modules" -name "*.ko" | while read -r module_path; do
+        module_name=$(basename "$module_path")
+        
+        # Check if module is in system list
+        if echo "$SYSTEM_MODULES" | grep -qw "$module_name"; then
+            cp -v "$module_path" "$TEMP_ANY_KERNEL_DIR/_modules_system/"
+            system_count=$((system_count + 1))
+        # Check if module is in vendor list
+        elif echo "$VENDOR_MODULES" | grep -qw "$module_name"; then
+            cp -v "$module_path" "$TEMP_ANY_KERNEL_DIR/_modules_vendor/"
+            vendor_count=$((vendor_count + 1))
+        else
+            # Default to vendor if not in any list
+            echo "Warning: $module_name not in any list, defaulting to vendor"
+            cp -v "$module_path" "$TEMP_ANY_KERNEL_DIR/_modules_vendor/"
+            unclassified_count=$((unclassified_count + 1))
+        fi
     done
 
-    echo "Modules in _modules:"
-    ls -lh "$TEMP_ANY_KERNEL_DIR/_modules"
+    echo "=========================================="
+    echo "Module Distribution Summary:"
+    echo "  System modules: $(ls -1 "$TEMP_ANY_KERNEL_DIR/_modules_system" 2>/dev/null | wc -l)"
+    echo "  Vendor modules: $(ls -1 "$TEMP_ANY_KERNEL_DIR/_modules_vendor" 2>/dev/null | wc -l)"
+    echo "=========================================="
+    
+    # Show what's in each directory
+    echo "System modules (_modules_system):"
+    ls -lh "$TEMP_ANY_KERNEL_DIR/_modules_system" 2>/dev/null || echo "  (empty)"
+    
+    echo ""
+    echo "Vendor modules (_modules_vendor):"
+    ls -lh "$TEMP_ANY_KERNEL_DIR/_modules_vendor" 2>/dev/null || echo "  (empty)"
 fi
-
-# Generate DTBO if not already
-#echo "=========================================="
-#echo "Generating DTBO from peridot-*.dtbo"
-#echo "=========================================="
-#scripts/mkdtboimg.py create $TEMP_ANY_KERNEL_DIR/dtbo.img \
-#  $(find out/arch/arm64/boot/dts/ -name "peridot-*.dtbo" -type f)
-
-# Move Appropriate .DTB to ZIP
-#echo "=========================================="
-#echo "Generating DTB blob from cliffs.dtb"
-#echo "=========================================="
-#cat out/arch/arm64/boot/dts/vendor/qcom/cliffs.dtb > $TEMP_ANY_KERNEL_DIR/dtb
 
 # Create zip file in kernel root directory
 echo "Creating zip package..."
@@ -213,6 +229,8 @@ rm -rf "$TEMP_ANY_KERNEL_DIR"
 
 BUILD_END=$(date +"%s")
 DIFF=$((BUILD_END - BUILD_START))
-echo -e "\nBuild completed in $((DIFF / 60))m $((DIFF % 60))s"
+echo -e "\n=========================================="
+echo "Build completed in $((DIFF / 60))m $((DIFF % 60))s"
 echo "Final zip: $KERNEL_DIR/$ZIP_NAME"
 echo "Zip size: $(du -h "$KERNEL_DIR/$ZIP_NAME" | cut -f1)"
+echo "=========================================="
