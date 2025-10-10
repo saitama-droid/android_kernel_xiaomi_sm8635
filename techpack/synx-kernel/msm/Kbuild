@@ -1,8 +1,10 @@
-LINUXINCLUDE    += -I$(SYNX_ROOT)/include \
-                   -I$(SYNX_ROOT)/include/uapi \
-				   -I$(SYNX_ROOT)/include/uapi/synx/media
+SYNX_ROOT ?= $(src)/..
 
-ccflags-y += -I$(SYNX_ROOT)/msm/synx/
+LINUXINCLUDE    += -I$(srctree)/$(SYNX_ROOT)/include \
+                   -I$(srctree)/$(SYNX_ROOT)/include/uapi \
+                   -I$(srctree)/$(SYNX_ROOT)/include/uapi/synx/media
+
+ccflags-y += -I$(srctree)/$(SYNX_ROOT)/msm/synx/
 
 # add flag to compile mmrm actual implementatio instead of stub version.
 # to follow up with mmrm team if techpack users need to define this for long term?

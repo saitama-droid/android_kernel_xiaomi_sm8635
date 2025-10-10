@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+SPU_ROOT ?= techpack/spu-kernel
 
 ifeq ($(CONFIG_QCOM_SPSS), m)
-        include $(SPU_ROOT)/config/gki_spu.conf
-        LINUXINCLUDE += -include $(SPU_ROOT)/config/gki_spuconf.h
+        include $(srctree)/$(SPU_ROOT)/config/gki_spu.conf
+        LINUXINCLUDE += -include $(srctree)/$(SPU_ROOT)/config/gki_spuconf.h
 endif
 
 LINUXINCLUDE += -I$(srctree)/../../vendor/qcom/opensource/spu-kernel/include/uapi

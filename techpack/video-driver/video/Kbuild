@@ -1,31 +1,33 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+VIDEO_ROOT ?= $(src)/..
+
 VIDEO_DRIVER_ABS_PATH := $(VIDEO_ROOT)/video/driver
 VIDEO_DRIVER_REL_PATH := ../video/driver
 
 ifeq ($(CONFIG_ARCH_PINEAPPLE), y)
-include $(VIDEO_ROOT)/config/pineapple_video.conf
-LINUXINCLUDE   += -include $(VIDEO_ROOT)/config/pineapple_video.h
+include $(srctree)/$(VIDEO_ROOT)/config/pineapple_video.conf
+LINUXINCLUDE   += -include $(srctree)/$(VIDEO_ROOT)/config/pineapple_video.h
 endif
 
 ifeq ($(CONFIG_MSM_VIDC_PINEAPPLE), y)
-LINUXINCLUDE   += -I$(VIDEO_DRIVER_ABS_PATH)/platform/pineapple/inc \
-                  -I$(VIDEO_DRIVER_ABS_PATH)/platform/cliffs/inc \
-                  -I$(VIDEO_DRIVER_ABS_PATH)/variant/iris33/inc
+LINUXINCLUDE   += -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/platform/pineapple/inc \
+                  -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/platform/cliffs/inc \
+                  -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/variant/iris33/inc
 endif
 
 ifeq ($(CONFIG_MSM_VIDC_VOLCANO), y)
-LINUXINCLUDE   += -I$(VIDEO_DRIVER_ABS_PATH)/platform/volcano/inc \
-                  -I$(VIDEO_DRIVER_ABS_PATH)/variant/iris2/inc
+LINUXINCLUDE   += -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/platform/volcano/inc \
+                  -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/variant/iris2/inc
 endif
 
-LINUXINCLUDE   += -I$(VIDEO_DRIVER_ABS_PATH)/platform/common/inc \
-                  -I$(VIDEO_DRIVER_ABS_PATH)/variant/common/inc \
-                  -I$(VIDEO_DRIVER_ABS_PATH)/vidc/inc \
-                  -I$(VIDEO_ROOT)/include/uapi/vidc
+LINUXINCLUDE   += -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/platform/common/inc \
+                  -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/variant/common/inc \
+                  -I$(srctree)/$(VIDEO_DRIVER_ABS_PATH)/vidc/inc \
+                  -I$(srctree)/$(VIDEO_ROOT)/include/uapi/vidc
 
-USERINCLUDE    += -I$(VIDEO_ROOT)/include/uapi/vidc/media \
-                  -I$(VIDEO_ROOT)/include/uapi/vidc
+USERINCLUDE    += -I$(srctree)/$(VIDEO_ROOT)/include/uapi/vidc/media \
+                  -I$(srctree)/$(VIDEO_ROOT)/include/uapi/vidc
 
 obj-m += video.o
 

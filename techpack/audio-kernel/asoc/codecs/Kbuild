@@ -190,7 +190,7 @@ ifdef CONFIG_SND_SOC_SWR_DMIC
 endif
 
 ifdef CONFIG_SND_SOC_WSA881X_ANALOG
-	INCS += -include $(KERNEL_SRC)/drivers/base/regmap/internal.h
+	INCS += -include $(srctree)/drivers/base/regmap/internal.h
 	WSA881X_ANALOG_OBJS += wsa881x-analog.o
 	WSA881X_ANALOG_OBJS += wsa881x-tables-analog.o
 	WSA881X_ANALOG_OBJS += wsa881x-regmap-analog.o
