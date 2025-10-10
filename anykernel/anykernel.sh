@@ -92,32 +92,34 @@ if [ "$snapshot_status" != "none" ]; then
 fi
 unset rc snapshot_status
 
+# Extract kernel version info
+strings ${home}/Image 2>/dev/null | grep -E -m1 'Linux version.*#' > ${home}/vertmp
+kernel_name=$(basename "$ZIPFILE" .zip)
+
+# Fix unable to mount image as read-write in recovery
+$BOOTMODE || setenforce 0
+
+########## VENDOR_DLKM PROCESSING ##########
+
 # Check vendor_dlkm partition status
 [ -d /vendor_dlkm ] || mkdir /vendor_dlkm
 is_mounted /vendor_dlkm || \
 	mount /vendor_dlkm -o ro || mount /dev/block/mapper/vendor_dlkm${slot} /vendor_dlkm -o ro || \
 		abort "! Failed to mount /vendor_dlkm"
 
-# Extract kernel version info
-strings ${home}/Image 2>/dev/null | grep -E -m1 'Linux version.*#' > ${home}/vertmp
-kernel_name=$(basename "$ZIPFILE" .zip)
-
-# Update detection
-skip_update_flag=false
+# Update detection for vendor_dlkm
+skip_vendor_update_flag=false
 
 if [ -f /vendor_dlkm/lib/modules/vertmp ]; then
 	current_ver=$(cat /vendor_dlkm/lib/modules/vertmp)
 	new_ver=$(cat ${home}/vertmp)
 	
-	[ "$current_ver" == "$new_ver" ] && skip_update_flag=true
+	[ "$current_ver" == "$new_ver" ] && skip_vendor_update_flag=true
 fi
 umount /vendor_dlkm
 
-# Fix unable to mount image as read-write in recovery
-$BOOTMODE || setenforce 0
-
-if $skip_update_flag; then
-	ui_print "- Kernel modules already up to date, skipping vendor_dlkm update"
+if $skip_vendor_update_flag; then
+	ui_print "- Vendor modules already up to date, skipping vendor_dlkm update"
 else
 	# Dump vendor_dlkm partition image
 	ui_print "- Dumping vendor_dlkm partition..."
@@ -162,9 +164,14 @@ else
 		extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules
 	fi
 
-	# Update modules
-	ui_print "- Updating /vendor_dlkm image..."
-	cp -f ${home}/_modules/*.ko ${extract_vendor_dlkm_modules_dir}/
+	# Update vendor modules (from _modules_vendor directory)
+	ui_print "- Updating /vendor_dlkm modules..."
+	if [ -d "${home}/_modules_vendor" ]; then
+		cp -f ${home}/_modules_vendor/*.ko ${extract_vendor_dlkm_modules_dir}/
+		ui_print "  Copied $(ls ${home}/_modules_vendor/*.ko 2>/dev/null | wc -l) vendor modules"
+	else
+		ui_print "  Warning: _modules_vendor directory not found, skipping vendor modules"
+	fi
 	cp -f ${home}/vertmp ${extract_vendor_dlkm_modules_dir}/vertmp
 	sync
 
@@ -187,15 +194,122 @@ else
 	unset vendor_dlkm_is_ext4 vendor_dlkm_free_space extract_vendor_dlkm_dir extract_vendor_dlkm_modules_dir
 fi
 
-unset skip_update_flag kernel_name
+########## SYSTEM_DLKM PROCESSING ##########
+
+# Check system_dlkm partition status
+[ -d /system_dlkm ] || mkdir /system_dlkm
+is_mounted /system_dlkm || \
+	mount /system_dlkm -o ro || mount /dev/block/mapper/system_dlkm${slot} /system_dlkm -o ro || \
+		abort "! Failed to mount /system_dlkm"
+
+# Update detection for system_dlkm
+skip_system_update_flag=false
+
+if [ -f /system_dlkm/lib/modules/android16-6.1/vertmp ]; then
+	current_ver=$(cat /system_dlkm/lib/modules/android16-6.1/vertmp)
+	new_ver=$(cat ${home}/vertmp)
+	
+	[ "$current_ver" == "$new_ver" ] && skip_system_update_flag=true
+fi
+umount /system_dlkm
+
+if $skip_system_update_flag; then
+	ui_print "- System modules already up to date, skipping system_dlkm update"
+else
+	# Dump system_dlkm partition image
+	ui_print "- Dumping system_dlkm partition..."
+	dd if=/dev/block/mapper/system_dlkm${slot} of=${home}/system_dlkm.img
+
+	ui_print "- Unpacking /system_dlkm partition..."
+	extract_system_dlkm_dir=${home}/_extract_system_dlkm
+	mkdir -p $extract_system_dlkm_dir
+	system_dlkm_is_ext4=false
+	extract_erofs ${home}/system_dlkm.img $extract_system_dlkm_dir || system_dlkm_is_ext4=true
+	sync
+
+	if $system_dlkm_is_ext4; then
+		ui_print "- /system_dlkm partition is ext4 file system"
+		mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o ro -t ext4 || \
+			abort "! Unsupported file system!"
+		system_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_system_dlkm_dir\$" | awk '{print $4}')
+		umount $extract_system_dlkm_dir
+
+		if [ "$system_dlkm_free_space" -lt 10240 ]; then
+			ui_print "- Insufficient free space, attempting resize..."
+			super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
+			[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
+				abort "! Super device does not have enough free space!"
+
+			${bin}/e2fsck -f -y ${home}/system_dlkm.img
+			system_dlkm_current_size_mb=$(du -bm ${home}/system_dlkm.img | awk '{print $1}')
+			system_dlkm_target_size_mb=$((system_dlkm_current_size_mb + 10))
+			${bin}/resize2fs ${home}/system_dlkm.img "${system_dlkm_target_size_mb}M" || \
+				abort "! Failed to resize system_dlkm image!"
+			ui_print "- Resized to ${system_dlkm_target_size_mb}M"
+			${bin}/e2fsck -f -y ${home}/system_dlkm.img
+
+			unset super_free_space system_dlkm_current_size_mb system_dlkm_target_size_mb
+		fi
+
+		mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o rw -t ext4 || \
+			abort "! Failed to mount system_dlkm.img as read-write!"
+
+		extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/lib/modules/android16-6.1
+	else
+		extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/system_dlkm/lib/modules/android16-6.1
+	fi
+
+	# Create android16-6.1 directory if it doesn't exist
+	mkdir -p ${extract_system_dlkm_modules_dir}
+
+	# Update system modules (from _modules_system directory)
+	ui_print "- Updating /system_dlkm modules..."
+	if [ -d "${home}/_modules_system" ]; then
+		cp -f ${home}/_modules_system/*.ko ${extract_system_dlkm_modules_dir}/
+		ui_print "  Copied $(ls ${home}/_modules_system/*.ko 2>/dev/null | wc -l) system modules"
+	else
+		ui_print "  Warning: _modules_system directory not found, skipping system modules"
+	fi
+	cp -f ${home}/vertmp ${extract_system_dlkm_modules_dir}/vertmp
+	sync
+
+	if $system_dlkm_is_ext4; then
+		set_perm 0 0 0644 ${extract_system_dlkm_modules_dir}/vertmp
+		chcon u:object_r:system_file:s0 ${extract_system_dlkm_modules_dir}/vertmp
+		umount $extract_system_dlkm_dir
+	else
+		cat ${extract_system_dlkm_dir}/config/system_dlkm_fs_config | grep -q 'lib/modules/android16-6.1/vertmp' || \
+			echo 'system_dlkm/lib/modules/android16-6.1/vertmp 0 0 0644' >> ${extract_system_dlkm_dir}/config/system_dlkm_fs_config
+		cat ${extract_system_dlkm_dir}/config/system_dlkm_file_contexts | grep -q 'lib/modules/android16-6.1/vertmp' || \
+			echo '/system_dlkm/lib/modules/android16-6.1/vertmp u:object_r:system_file:s0' >> ${extract_system_dlkm_dir}/config/system_dlkm_file_contexts
+		ui_print "- Repacking /system_dlkm image..."
+		rm -f ${home}/system_dlkm.img
+		mkfs_erofs ${extract_system_dlkm_dir}/system_dlkm ${home}/system_dlkm.img || \
+			abort "! Failed to repack the system_dlkm image!"
+		rm -rf ${extract_system_dlkm_dir}
+	fi
+
+	unset system_dlkm_is_ext4 system_dlkm_free_space extract_system_dlkm_dir extract_system_dlkm_modules_dir
+fi
+
+unset skip_vendor_update_flag skip_system_update_flag kernel_name
 
 ########## CUSTOM END ##########
 
 # Flash updated /vendor_dlkm image (only if updated)
 vendor_dlkm_flashed=false
 if [ -f ${home}/vendor_dlkm.img ]; then
+	ui_print "- Flashing vendor_dlkm partition..."
 	flash_generic vendor_dlkm
 	vendor_dlkm_flashed=true
+fi
+
+# Flash updated /system_dlkm image (only if updated)
+system_dlkm_flashed=false
+if [ -f ${home}/system_dlkm.img ]; then
+	ui_print "- Flashing system_dlkm partition..."
+	flash_generic system_dlkm
+	system_dlkm_flashed=true
 fi
 
 # Flash kernel to boot
@@ -225,8 +339,8 @@ flash_boot && boot_flashed=true
 
 #flash_dtbo
 
-# Recovery instructions (only show if both operations completed)
-if $vendor_dlkm_flashed && $boot_flashed; then
+# Recovery instructions (only show if all operations completed)
+if $boot_flashed && ($vendor_dlkm_flashed || $system_dlkm_flashed); then
 	ui_print " "
 	ui_print "============================================"
 	ui_print "  IMPORTANT INFORMATION"
