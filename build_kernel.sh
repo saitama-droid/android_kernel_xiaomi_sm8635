@@ -152,29 +152,11 @@ if [ $BUILD_HAS_MODULES -gt 0 ]; then
         mkdir -p "$TEMP_ANY_KERNEL_DIR/_modules"
     fi
 
-    # List of specific modules to include
-    IMPORTANT_MODULES=(
-        "cnss_nl.ko" "cnss_plat_ipc_qmi_svc.ko" "cnss_prealloc.ko" "cnss_utils.ko" "cnss2.ko"
-        "goodix_ts.ko" "icnss2.ko" "ipam.ko" "ipanetm.ko"
-        "lpass_cdc_dlkm.ko" "lpass_cdc_rx_macro_dlkm.ko" "lpass_cdc_tx_macro_dlkm.ko"
-        "lpass_cdc_va_macro_dlkm.ko" "lpass_cdc_wsa_macro_dlkm.ko" "lpass_cdc_wsa2_macro_dlkm.ko"
-        "msm_drm.ko" "msm_kgsl.ko" "mi_thermal_interface.ko"
-        "qti_cpufreq_cdev.ko" "qti_devfreq_cdev.ko" "rmnet_offload.ko" "rmnet_shs.ko"
-        "smcinvoke_dlkm.ko" "wcd_core_dlkm.ko" "wcd9xxx_dlkm.ko"
-        "wcd937x_dlkm.ko" "wcd937x_slave_dlkm.ko" "wcd938x_dlkm.ko"
-        "wcd938x_slave_dlkm.ko" "wcd939x_dlkm.ko" "wcd939x_slave_dlkm.ko"
-        "wlan_firmware_service.ko" "xiaomi_touch.ko" "fs19xx_dlkm.ko" "aw882xx_dlkm.ko" "qca_cld3_kiwi_v2.ko"
-        "spf_core_dlkm.ko" "snd_event_dlkm.ko" "gpr_dlkm.ko" "panel_event_notifier.ko" "machine_dlkm.ko" "focaltech_3683g.ko"
-    )
-
-    # Find and copy each specified module
-    for module in "${IMPORTANT_MODULES[@]}"; do
-        find "$MODULES_DIR/lib/modules" -name "$module" -exec cp -v {} "$TEMP_ANY_KERNEL_DIR/_modules/" \;
-    done
-
-    echo "Modules in _modules:"
-    ls -lh "$TEMP_ANY_KERNEL_DIR/_modules"
-fi
+    # Find and copy all .ko module files
+    find "$MODULES_DIR/lib/modules" -name "*.ko" -exec cp -v {} "$TEMP_ANY_KERNEL_DIR/_modules/" \;
+        echo "Modules in _modules:"
+        ls -lh "$TEMP_ANY_KERNEL_DIR/_modules"
+    fi
 
 # Generate DTBO if not already
 #echo "=========================================="
