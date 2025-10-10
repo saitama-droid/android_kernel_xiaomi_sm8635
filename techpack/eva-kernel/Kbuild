@@ -1,17 +1,31 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+EVA_ROOT ?= $(src)
+
 CONFIG_BUILD_VENDORSI := true
+
+LINUXINCLUDE    += -I$(srctree)/$(EVA_ROOT)/include \
+                   -I$(srctree)/$(EVA_ROOT)/include/uapi \
+                   -I$(srctree)/$(EVA_ROOT)/include/uapi/eva \
+                   -I$(srctree)/$(EVA_ROOT)/msm/eva \
+                   -I$(srctree)/techpack/synx-kernel/msm/synx/ \
+                   -I$(srctree)/techpack/synx-kernel/include/uapi/synx/media/ \
+                   -I$(srctree)/techpack/dsp-kernel/include/linux/
+
+ccflags-y       += -I$(srctree)/$(EVA_ROOT)/include \
+                   -I$(srctree)/$(EVA_ROOT)/include/uapi \
+                   -I$(srctree)/$(EVA_ROOT)/include/uapi/eva \
+                   -I$(srctree)/$(EVA_ROOT)/msm/eva \
+                   -I$(srctree)/techpack/synx-kernel/msm/synx/ \
+                   -I$(srctree)/techpack/synx-kernel/include/uapi/synx/media/ \
+                   -I$(srctree)/techpack/dsp-kernel/include/linux/
 
 # auto-detect subdirs
 ifneq ($(CONFIG_BUILD_VENDORSI), true)
 ifneq ($(CONFIG_ARCH_QTI_VM), y)
-include $(srctree)/techpack/eva/config/waipioeva.conf
-LINUXINCLUDE    += -include $(srctree)/techpack/eva/config/waipioevaconf.h
+include $(srctree)/$(EVA_ROOT)/config/waipioeva.conf
+LINUXINCLUDE    += -include $(srctree)/$(EVA_ROOT)/config/waipioevaconf.h
 endif
-
-LINUXINCLUDE    += -I$(srctree)/techpack/eva/include \
-                   -I$(srctree)/techpack/eva/include/uapi \
-		   -I$(srctree)/techpack/eva/include/uapi/eva
 endif
 
 obj-y +=msm/

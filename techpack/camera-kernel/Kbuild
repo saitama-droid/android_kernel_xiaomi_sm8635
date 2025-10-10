@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+CAMERA_KERNEL_ROOT ?= $(srctree)/techpack/camera-kernel
+KERNEL_ROOT ?= $(srctree)
+
 ifeq ($(CONFIG_QCOM_CAMERA_DEBUG), y)
 $(info "CAMERA_KERNEL_ROOT is: $(CAMERA_KERNEL_ROOT)")
 $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
@@ -77,7 +80,7 @@ cam_include_dirs := $(shell dirname `find $(CAMERA_KERNEL_ROOT) -name '*.h'` | u
 
 # Include UAPI headers
 USERINCLUDE +=                              \
-	-I$(CAMERA_KERNEL_ROOT)/include/uapi/
+	-I$(CAMERA_KERNEL_ROOT)/include/uapi/camera
 # Include Kernel headers
 LINUXINCLUDE +=                                 \
 	-I$(KERNEL_ROOT)                            \
@@ -86,12 +89,16 @@ LINUXINCLUDE +=                                 \
 	-I$(CAMERA_KERNEL_ROOT)/
 # Optional include directories
 SYNXVENDORDIR=$(CAMERA_KERNEL_ROOT)/../synx-kernel
+ccflags-y += -I$(CAMERA_KERNEL_ROOT)/include/uapi/camera/media
 ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm/synx
 ccflags-$(CONFIG_TARGET_SYNX_ENABLE) += -I$(SYNXVENDORDIR)/include/uapi/synx/media
 ccflags-$(CONFIG_TARGET_SYNX_ENABLE) += -I$(SYNXVENDORDIR)/msm/synx
 ccflags-$(CONFIG_TARGET_SYNX_ENABLE) += -DCONFIG_TARGET_SYNX_ENABLE=1
 ccflags-y += -I$(CAMERA_KERNEL_ROOT)/../securemsm-kernel/
 ccflags-y += -I$(CAMERA_KERNEL_ROOT)/../securemsm-kernel/include/
+ccflags-y += -DCAMERA_COMPILE_BY=\"$(shell whoami)\"
+ccflags-y += -DCAMERA_COMPILE_HOST=\"$(shell hostname)\"
+ccflags-y += -DCAMERA_COMPILE_TIME=\"$(shell date +"%Y-%m-%d_%H:%M:%S")\"
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 ccflags-y += ${ccflags-m}

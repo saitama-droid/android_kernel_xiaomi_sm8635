@@ -19,15 +19,17 @@ KBUILD_CPPFLAGS += -DCONFIG_DSP_PINEAPPLE=1
 ccflags-y += -DCONFIG_DSP_PINEAPPLE=1
 endif
 
-LINUXINCLUDE += -I$(DSP_ROOT)/include/linux
-LINUXINCLUDE += -I$(DSP_ROOT)/include/uapi
+DSP_ROOT ?= $(src)
 
-frpc-adsprpc-y := dsp/adsprpc.o	\
+LINUXINCLUDE += -I$(srctree)/$(DSP_ROOT)/include/linux
+LINUXINCLUDE += -I$(srctree)/$(DSP_ROOT)/include/uapi
+
+frpc-adsprpc-y := dsp/adsprpc.o \
                   dsp/adsprpc_rpmsg.o \
 
 frpc-adsprpc-$(CONFIG_COMPAT) += dsp/adsprpc_compat.o \
 
-frpc_trusted-adsprpc-y := dsp/adsprpc.o	\
+frpc_trusted-adsprpc-y := dsp/adsprpc.o \
                           dsp/adsprpc_compat.o \
                           dsp/adsprpc_socket.o \
 

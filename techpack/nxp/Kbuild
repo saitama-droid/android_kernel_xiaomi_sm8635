@@ -1,14 +1,16 @@
 #Makefile for qti nfc drivers
 
-include $(NFC_ROOT)/config/gki_nfc.conf
+NFC_ROOT ?= $(src)
 
-LINUXINCLUDE    += -I$(NFC_ROOT)/include/uapi/linux/nfc
+include $(srctree)/$(NFC_ROOT)/config/gki_nfc.conf
 
-LINUXINCLUDE   += -include $(NFC_ROOT)/config/gki_nfc_conf.h
+LINUXINCLUDE    += -I$(srctree)/$(NFC_ROOT)/include/uapi/linux/nfc
 
-LINUXINCLUDE   += -I$(NFC_ROOT)/../securemsm-kernel/smcinvoke/
-LINUXINCLUDE   += -I$(NFC_ROOT)/../securemsm-kernel/linux/
-LINUXINCLUDE   += -I$(NFC_ROOT)/../securemsm-kernel/include/linux/
+LINUXINCLUDE   += -include $(srctree)/$(NFC_ROOT)/config/gki_nfc_conf.h
+
+LINUXINCLUDE   += -I$(srctree)/techpack/securemsm-kernel/smcinvoke/
+LINUXINCLUDE   += -I$(srctree)/techpack/securemsm-kernel/linux/
+LINUXINCLUDE   += -I$(srctree)/techpack/securemsm-kernel/include/linux/
 
 obj-$(CONFIG_NXP_NFC_I2C) += nxp-nci.o
 
@@ -18,4 +20,3 @@ nxp-nci-objs += nfc/ese_cold_reset.o \
 		nfc/common_nxp.o \
 		nfc/common_qcom.o \
 		nfc/i2c_drv.o
-
