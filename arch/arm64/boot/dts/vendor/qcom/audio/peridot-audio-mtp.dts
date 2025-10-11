@@ -1,0 +1,157 @@
+/dts-v1/;
+/plugin/;
+
+#include "cliffs-audio-overlay.dtsi"
+#include "peridot-pinctrl.dtsi"
+
+ / {
+	model = "Qualcomm Technologies, Inc. Cliffs MTP";
+	compatible = "qcom,cliffs-mtp", "qcom,cliffs", "qcom,mtp";
+	qcom,msm-id = <614 0x10000>, <632 0x10000>;
+	qcom,board-id = <8 0>;
+	xiaomi,miboard-id = <0x8 0>;
+};
+
+&soc {
+    sbu_uart_en: msm_cdc_pinctrl@150 {
+        #gpio-cells = <0x0>;
+        compatible = "qcom,msm-cdc-pinctrl";
+        pinctrl-0 = <&sbu_uart_en_active>;
+        pinctrl-1 = <&sbu_uart_en_idle>;
+        pinctrl-names = "aud_active", "aud_sleep";
+    };
+    msm_cdc_pinctrl@32 {
+        qcom,lpi-gpios;
+    };
+};
+
+&spf_core_platform {
+    cdc_quin_mi2s_gpios: quin_mi2s_pinctrl {
+        #gpio-cells = <0x0>;
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&lpi_tdm1_sck_active &lpi_tdm1_ws_active &lpi_tdm1_sd0_active &lpi_tdm1_sd1_active>;
+		pinctrl-1 = <&lpi_tdm1_sck_sleep &lpi_tdm1_ws_sleep &lpi_tdm1_sd0_sleep &lpi_tdm1_sd1_sleep>;
+		qcom,lpi-gpios;
+		status = "ok";
+	};
+};
+
+&pineapple_snd {
+	asoc-codec  = <&stub_codec>, <&lpass_cdc>, <&wcd937x_codec>, <&wsa883x_0221>, <&wsa883x_0222>;
+	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc", "wcd937x_codec", "wsa-codec1", "wsa-codec2";
+	fsa4480-i2c-handle = <&fsa4480>;
+	qcom,audio-routing = "AMIC1", "Analog Mic1", "AMIC1", "MIC BIAS1", "AMIC2", "Analog Mic2", "AMIC2", "MIC BIAS2", "AMIC3", "Analog Mic3", "AMIC3", "MIC BIAS3", "AMIC4", "Analog Mic4", "AMIC4", "MIC BIAS3", "TX DMIC0", "Digital Mic0", "TX DMIC0", "MIC BIAS3", "TX DMIC1", "Digital Mic1", "TX DMIC1", "MIC BIAS3", "TX DMIC2", "Digital Mic2", "TX DMIC2", "MIC BIAS1", "TX DMIC3", "Digital Mic3", "TX DMIC3", "MIC BIAS1", "IN1_HPHL", "HPHL_OUT", "IN2_HPHR", "HPHR_OUT", "IN3_AUX", "AUX_OUT", "RX_TX DEC0_INP", "TX DEC0 MUX", "RX_TX DEC1_INP", "TX DEC1 MUX", "RX_TX DEC2_INP", "TX DEC2 MUX", "RX_TX DEC3_INP", "TX DEC3 MUX", "TX SWR_INPUT", "WCD_TX_OUTPUT", "VA SWR_INPUT", "VA_SWR_CLK", "VA SWR_INPUT", "WCD_TX_OUTPUT", "VA_AIF1 CAP", "VA_SWR_CLK", "VA_AIF2 CAP", "VA_SWR_CLK", "VA_AIF3 CAP", "VA_SWR_CLK", "VA DMIC0", "Digital Mic0", "VA DMIC1", "Digital Mic1", "VA DMIC2", "Digital Mic2", "VA DMIC3", "Digital Mic3", "VA DMIC0", "VA MIC BIAS3", "VA DMIC1", "VA MIC BIAS3", "VA DMIC2", "VA MIC BIAS1", "VA DMIC3", "VA MIC BIAS1";\
+	qcom,ext-disp-audio-rx = <1>;
+	qcom,model = "cliffs-mtp-snd-card";
+	qcom,tdm-audio-intf = <1>;
+	qcom,tdm-clk-attribute = <4>, <4>, <4>, <4>, <4>, <4>, <4>, <4>;
+	qcom,tdm-max-slots = <4>;
+	qcom,wsa-max-devs = <0>;
+	qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
+	qcom,uart-audio-sw-gpio = <&sbu_uart_en>;
+};
+
+&qupv3_se11_i2c {
+    status = "ok";
+    aw882xx_smartpa@34 {
+        aw-cali-mode = "none";
+        aw-re-max = <0x7530>;
+        aw-re-min = <0xFA0>;
+        compatible = "awinic,aw882xx_smartpa";
+        irq-gpio = <&tlmm 0x2F 0x2008>;
+        reg = <0x34>;
+        reset-gpio = <&tlmm 0x4C 0x0>;
+        sound-channel = <0x0>;
+        spksw-gpio = <&tlmm 0x62 0x0>;
+        status = "ok";
+        sync-load = <0x1>;
+    };
+    aw882xx_smartpa@35 {
+        aw-cali-mode = "none";
+        aw-re-max = <0x7530>;
+        aw-re-min = <0xFA0>;
+        compatible = "awinic,aw882xx_smartpa";
+        irq-gpio = <&tlmm 0x64 0x2008>;
+        reg = <0x35>;
+        reset-gpio = <&tlmm 0x98 0x0>;
+        sound-channel = <0x1>;
+        status = "ok";
+        sync-load = <0x1>;
+    };
+};
+
+&wcd937x_rx_slave {
+    status = "okay";
+};
+
+&wcd937x_tx_slave {
+    status = "okay";
+};
+&lpass_cdc {
+    qcom,num-macros = <3>;
+};
+
+&wcd937x_codec {
+    status = "disabled";
+};
+
+&wcd939x_rx_slave {
+    status = "disabled";
+};
+
+&wcd939x_codec {
+    status = "disabled";
+};
+
+&wsa_macro {
+    status = "disabled";
+};
+
+&wsa884x_0220 {
+    status = "disabled";
+};
+
+&wsa884x_0221 {
+    status = "disabled";
+};
+
+&wcd939x_tx_slave {
+    status = "disabled";
+};
+
+&cdc_dmic01_gpios {
+    status = "disabled";
+};
+
+&cdc_dmic23_gpios {
+    status = "disabled";
+};
+
+&cdc_dmic45_gpios {
+    status = "disabled";
+};
+
+&cdc_dmic67_gpios {
+    status = "disabled";
+};
+
+&fm_i2s1_gpios {
+    status = "disabled";
+};
+
+&wsa_spkr_en01 {
+    status = "disabled";
+};
+
+&wsa_spkr_en02 {
+    status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "okay";
+	qcom,cdc-micbias1-mv = <2750>;
+	qcom,cdc-micbias2-mv = <2750>;
+	qcom,cdc-micbias3-mv = <2750>;
+	qcom,cdc-micbias4-mv = <2750>;
+};
