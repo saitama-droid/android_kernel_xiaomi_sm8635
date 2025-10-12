@@ -12,18 +12,6 @@ ZIMAGE_DIR="$OUT_DIR/arch/arm64/boot"
 DTB_DTBO_DIR="$ZIMAGE_DIR/dts/vendor/qcom"
 BUILD_START=$(date +"%s")
 
-# Techpack paths
-export AUDIO_ROOT="$KERNEL_DIR/techpack/audio-kernel"
-export CAMERA_ROOT="$KERNEL_DIR/techpack/camera-kernel"
-export DISPLAY_ROOT="$KERNEL_DIR/techpack/display-drivers"
-export GRAPHICS_ROOT="$KERNEL_DIR/techpack/graphics-kernel"
-export MM_ROOT="$KERNEL_DIR/techpack/mm-drivers"
-export MMRM_ROOT="$KERNEL_DIR/techpack/mmrm-driver"
-export SECUREMSM_ROOT="$KERNEL_DIR/techpack/securemsm-kernel"
-export SYNX_ROOT="$KERNEL_DIR/techpack/synx-kernel"
-export TOUCH_ROOT="$KERNEL_DIR/techpack/touch-drivers"
-export WLAN_ROOT="$KERNEL_DIR/techpack/wlan"
-
 # Function to check for existing Clang
 check_clang() {
     if [ -d "$CLANG_DIR" ] && [ -f "$CLANG_DIR/bin/clang" ]; then
@@ -71,17 +59,6 @@ export LD=ld.lld
 export ARCH=arm64
 export SUBARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
-
-# Include paths
-export KERNEL_SRC="$KERNEL_DIR"
-INCLUDE_PATHS="
-    -I$KERNEL_DIR/include
-    -I$KERNEL_DIR/arch/arm64/include
-    -I$KERNEL_DIR/drivers/base/regmap
-    -I$AUDIO_ROOT/include
-    -I$CAMERA_ROOT/include
-    -I$DISPLAY_ROOT/include
-"
 
 # Build flags
 MAKE_OPTS="
