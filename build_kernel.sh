@@ -200,17 +200,17 @@ if [ $BUILD_HAS_MODULES -gt 0 ]; then
 fi
 
 # Generate DTBO if not already
-echo "=========================================="
-echo "Generating DTBO from peridot-*.dtbo"
-echo "=========================================="
-scripts/mkdtboimg.py create $TEMP_ANY_KERNEL_DIR/dtbo.img \
-  $(find out/arch/arm64/boot/dts/ -name "peridot-*.dtbo" -type f)
+#echo "=========================================="
+#echo "Generating DTBO from peridot-*.dtbo"
+#echo "=========================================="
+#scripts/mkdtboimg.py create $TEMP_ANY_KERNEL_DIR/dtbo.img \
+#  $(find out/arch/arm64/boot/dts/ -name "peridot-*.dtbo" -type f)
 
 # Move Appropriate .DTB to ZIP
-echo "=========================================="
-echo "Generating DTB blob from cliffs.dtb"
-echo "=========================================="
-cat out/arch/arm64/boot/dts/vendor/qcom/cliffs.dtb > $TEMP_ANY_KERNEL_DIR/dtb
+#echo "=========================================="
+#echo "Generating DTB blob from cliffs.dtb"
+#echo "=========================================="
+#cat out/arch/arm64/boot/dts/vendor/qcom/cliffs.dtb > $TEMP_ANY_KERNEL_DIR/dtb
 
 # Create zip file in kernel root directory
 echo "Creating zip package..."
