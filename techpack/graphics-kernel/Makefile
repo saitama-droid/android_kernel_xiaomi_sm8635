@@ -10,7 +10,7 @@ KBUILD_OPTIONS += MODNAME=msm_kgsl
 KBUILD_OPTIONS += KGSL_PATH=$(KGSL_MODULE_ROOT)
 
 KBUILD_EXTRA_SYMBOLS := \
-    $(OUT_DIR)/../sm8635-modules/qcom/opensource/mm-drivers/hw_fence/Module.symvers
+    $(OUT_DIR)/../techpack/mm-drivers/hw_fence/Module.symvers
 
 all: modules
 

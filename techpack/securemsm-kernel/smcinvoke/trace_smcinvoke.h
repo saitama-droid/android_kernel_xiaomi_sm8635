@@ -490,7 +490,7 @@ TRACE_EVENT(smcinvoke_release,
 * Define path if not defined in bazel file
  */
 #ifndef SMCINVOKE_TRACE_INCLUDE_PATH
-#define SMCINVOKE_TRACE_INCLUDE_PATH ../../../../sm8635-modules/qcom/opensource/securemsm-kernel/smcinvoke
+#define SMCINVOKE_TRACE_INCLUDE_PATH ../../../../techpack/securemsm-kernel/smcinvoke
 #endif
 
 #undef TRACE_INCLUDE_PATH

@@ -104,8 +104,8 @@ ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), chenfeng))
 	CDEFINES += -DCONFIG_TARGET_PRODUCT_CHENFENG
 endif
 
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/sm8635-modules/qcom/opensource/display-drivers/hdcp/Module.symvers
-KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/sm8635-modules/qcom/opensource/display-drivers/msm/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/techpack/display-drivers/hdcp/Module.symvers
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/techpack/display-drivers/msm/Module.symvers
 
 ifeq ($(call cc-option-yn, -Wheader-guard),y)
 EXTRA_CFLAGS += -Wheader-guard
