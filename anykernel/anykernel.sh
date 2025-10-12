@@ -69,7 +69,7 @@ if [ "$rc" != 0 ]; then
 	if $BOOTMODE; then
 		ui_print "If you are installing the kernel in an app, try using another app."
 		ui_print "Recommend KernelFlasher:"
-		ui_print "  https://github.com/capntrips/KernelFlasher/releases"
+		ui_print "  https://github.com/fatalcoder524/KernelFlasher/releases"
 	else
 		ui_print "Please try to reboot to system once before installing!"
 	fi
