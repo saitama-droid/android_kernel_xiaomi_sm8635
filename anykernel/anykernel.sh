@@ -4,7 +4,7 @@
 ### AnyKernel setup
 # begin properties
 properties() { '
-kernel.string=RealKing Kernel by Rohail(@Rohail33)--Telegram
+kernel.string=OSS Kernel
 do.devicecheck=0
 do.modules=0
 do.systemless=1
@@ -119,12 +119,12 @@ $BOOTMODE || setenforce 0
 
 	# Backup kernel and vendor_dlkm image
 	#if $do_backup_flag; then
-		ui_print "- It looks like you are installing Realking Kernel for the first time."
+		ui_print "- It looks like you are installing OSS Kernel for the first time."
 		ui_print "- Next will backup the kernel and vendor_dlkm partitions..."
 
 		build_prop=/system/build.prop
 		[ -d /system_root/system ] && build_prop=/system_root/$build_prop
-		backup_package=/sdcard/Realking-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
+		backup_package=/sdcard/OSS-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
 		${bin}/7za a -tzip -bd $backup_package \
 			${home}/META-INF ${bin} ${home}/LICENSE ${home}/_restore_anykernel.sh ${split_img}/kernel ${home}/vendor_dlkm.img
 		${bin}/7za rn -bd $backup_package Image.gz
