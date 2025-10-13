@@ -123,32 +123,6 @@ else
 	ui_print "- Dumping vendor_dlkm partition..."
 	dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
 
-	# Backup kernel and vendor_dlkm image
-	#if $do_backup_flag; then
-		ui_print "- It looks like you are installing OSS Kernel for the first time."
-		ui_print "- Next will backup the kernel and vendor_dlkm partitions..."
-
-		build_prop=/system/build.prop
-		[ -d /system_root/system ] && build_prop=/system_root/$build_prop
-		backup_package=/sdcard/OSS-restore-kernel-$(file_getprop $build_prop ro.build.version.incremental)-$(date +"%Y%m%d-%H%M%S").zip
-		${bin}/7za a -tzip -bd $backup_package \
-			${home}/META-INF ${bin} ${home}/LICENSE ${home}/_restore_anykernel.sh ${split_img}/kernel ${home}/vendor_dlkm.img
-		${bin}/7za rn -bd $backup_package Image.gz
-		${bin}/7za rn -bd $backup_package _restore_anykernel.sh anykernel.sh
-		sync
-
-		ui_print " "
-		ui_print "- The current kernel and gevendor_dlkm have been backedup to:"
-		ui_print "  $backup_package"
-		ui_print "- If you encounter an unexpected situation,"
-		ui_print "  or want to restore the stock kernel,"
-		ui_print "  please flash it in TWRP or some supported apps."
-		ui_print " "
-		touch ${home}/do_backup_flag
-
-		unset build_prop backup_package
-	#fi
-
 	ui_print "- Unpacking /vendor_dlkm partition..."
 	extract_vendor_dlkm_dir=${home}/_extract_vendor_dlkm
 	mkdir -p $extract_vendor_dlkm_dir
@@ -218,12 +192,15 @@ unset skip_update_flag kernel_name
 ########## CUSTOM END ##########
 
 # Flash updated /vendor_dlkm image (only if updated)
+vendor_dlkm_flashed=false
 if [ -f ${home}/vendor_dlkm.img ]; then
 	flash_generic vendor_dlkm
+	vendor_dlkm_flashed=true
 fi
 
 # Flash kernel to boot
-flash_boot
+boot_flashed=false
+flash_boot && boot_flashed=true
 
 # Flash DTB to vendor_boot (only if dtb is present)
 #unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
@@ -247,3 +224,21 @@ flash_boot
 #fi
 
 #flash_dtbo
+
+# Recovery instructions (only show if both operations completed)
+if $vendor_dlkm_flashed && $boot_flashed; then
+	ui_print " "
+	ui_print "============================================"
+	ui_print "  IMPORTANT INFORMATION"
+	ui_print "============================================"
+	ui_print " "
+	ui_print "If your device doesn't boot or goes to"
+	ui_print "fastboot:"
+	ui_print " "
+	ui_print "  * Flash original boot.img"
+	ui_print "  * Reboot to recovery"
+	ui_print "  * Dirty flash your ROM"
+	ui_print " "
+	ui_print "============================================"
+	ui_print " "
+fi
