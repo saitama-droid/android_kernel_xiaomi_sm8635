@@ -98,23 +98,29 @@ is_mounted /vendor_dlkm || \
 	mount /vendor_dlkm -o ro || mount /dev/block/mapper/vendor_dlkm${slot} /vendor_dlkm -o ro || \
 		abort "! Failed to mount /vendor_dlkm"
 
+# Extract kernel version info
 strings ${home}/Image 2>/dev/null | grep -E -m1 'Linux version.*#' > ${home}/vertmp
+kernel_name=$(basename "$ZIPFILE" .zip)
 
+# Update detection
 skip_update_flag=false
-do_backup_flag=false
+
 if [ -f /vendor_dlkm/lib/modules/vertmp ]; then
-	[ "$(cat /vendor_dlkm/lib/modules/vertmp)" == "$(cat ${home}/vertmp)" ] && skip_update_flag=true
-else
-	do_backup_flag=true
+	current_ver=$(cat /vendor_dlkm/lib/modules/vertmp)
+	new_ver=$(cat ${home}/vertmp)
+	
+	[ "$current_ver" == "$new_ver" ] && skip_update_flag=true
 fi
 umount /vendor_dlkm
 
 # Fix unable to mount image as read-write in recovery
 $BOOTMODE || setenforce 0
 
-#if $skip_update_flag; then
-#else
+if $skip_update_flag; then
+	ui_print "- Kernel modules already up to date, skipping vendor_dlkm update"
+else
 	# Dump vendor_dlkm partition image
+	ui_print "- Dumping vendor_dlkm partition..."
 	dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
 
 	# Backup kernel and vendor_dlkm image
@@ -151,35 +157,29 @@ $BOOTMODE || setenforce 0
 	sync
 
 	if $vendor_dlkm_is_ext4; then
-		ui_print "- /vendor_dlkm partition seems to be in ext4 file system."
+		ui_print "- /vendor_dlkm partition is ext4 file system"
 		mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o ro -t ext4 || \
 			abort "! Unsupported file system!"
 		vendor_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_vendor_dlkm_dir\$" | awk '{print $4}')
 		umount $extract_vendor_dlkm_dir
 
-		[ "$vendor_dlkm_free_space" -gt 10240 ] || {
-			# Resize vendor_dlkm image
-			ui_print "- /vendor_dlkm partition does not have enough free space!"
-			ui_print "- Trying to resize..."
+		if [ "$vendor_dlkm_free_space" -lt 10240 ]; then
+			ui_print "- Insufficient free space, attempting resize..."
 			super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
-			[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || {
-				ui_print "! Super device does not have enough free space!"
-				abort "! We have tried all known methods!"
-			}
+			[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
+				abort "! Super device does not have enough free space!"
 
 			${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
 			vendor_dlkm_current_size_mb=$(du -bm ${home}/vendor_dlkm.img | awk '{print $1}')
 			vendor_dlkm_target_size_mb=$((vendor_dlkm_current_size_mb + 10))
 			${bin}/resize2fs ${home}/vendor_dlkm.img "${vendor_dlkm_target_size_mb}M" || \
 				abort "! Failed to resize vendor_dlkm image!"
-			ui_print "- Resized vendor_dlkm.img size: ${vendor_dlkm_target_size_mb}M."
-			# e2fsck again
+			ui_print "- Resized to ${vendor_dlkm_target_size_mb}M"
 			${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
 
 			unset super_free_space vendor_dlkm_current_size_mb vendor_dlkm_target_size_mb
-		}
+		fi
 
-		ui_print "- Trying to mount vendor_dlkm image as read-write..."
 		mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o rw -t ext4 || \
 			abort "! Failed to mount vendor_dlkm.img as read-write!"
 
@@ -188,6 +188,7 @@ $BOOTMODE || setenforce 0
 		extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules
 	fi
 
+	# Update modules
 	ui_print "- Updating /vendor_dlkm image..."
 	cp -f ${home}/_modules/*.ko ${extract_vendor_dlkm_modules_dir}/
 	cp -f ${home}/vertmp ${extract_vendor_dlkm_modules_dir}/vertmp
@@ -209,17 +210,17 @@ $BOOTMODE || setenforce 0
 		rm -rf ${extract_vendor_dlkm_dir}
 	fi
 
-	unset vendor_dlkm_is_ext4 vendor_dlkm_free_space extract_vendor_dlkm_dir extract_vendor_dlkm_modules_dir blocklist_expr
-#fi
+	unset vendor_dlkm_is_ext4 vendor_dlkm_free_space extract_vendor_dlkm_dir extract_vendor_dlkm_modules_dir
+fi
 
-unset skip_update_flag do_backup_flag
-
+unset skip_update_flag kernel_name
 
 ########## CUSTOM END ##########
-flash_generic vendor_dlkm
 
-# Flash updated /vendor_dlkm image
-flash_generic vendor_dlkm
+# Flash updated /vendor_dlkm image (only if updated)
+if [ -f ${home}/vendor_dlkm.img ]; then
+	flash_generic vendor_dlkm
+fi
 
 # Flash kernel to boot
 flash_boot
