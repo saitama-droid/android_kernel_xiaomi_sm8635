@@ -225,24 +225,24 @@ flash_generic vendor_dlkm
 flash_boot
 
 # Flash DTB to vendor_boot (only if dtb is present)
-unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
-if [ -f "$home/dtb" ]; then
-  ui_print "- Found dtb blob, flashing to vendor_boot..."
+#unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
+#if [ -f "$home/dtb" ]; then
+#  ui_print "- Found dtb blob, flashing to vendor_boot..."
 
-  block=/dev/block/bootdevice/by-name/vendor_boot;
-  is_slot_device=1;
-  ramdisk_compression=auto;
-  patch_vbmeta_flag=auto;
+#  block=/dev/block/bootdevice/by-name/vendor_boot;
+#  is_slot_device=1;
+#  ramdisk_compression=auto;
+#  patch_vbmeta_flag=auto;
 
-  reset_ak;
-  dump_boot;
+#  reset_ak;
+#  dump_boot;
 
   # Replace existing DTB
-  cp -f "$home/dtb" "$split_img/dtb"
+#  cp -f "$home/dtb" "$split_img/dtb"
 
-  write_boot;
-else
-  ui_print "! dtb blob not found, skipping vendor_boot flash"
-fi
+#  write_boot;
+#else
+#  ui_print "! dtb blob not found, skipping vendor_boot flash"
+#fi
 
-flash_dtbo
+#flash_dtbo
