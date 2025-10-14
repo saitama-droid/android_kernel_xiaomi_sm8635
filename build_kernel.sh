@@ -5,7 +5,7 @@ set -e
 DIR=$(readlink -f .)
 MAIN=$(readlink -f ${DIR}/..)
 KERNEL_DEFCONFIG=peridot_defconfig
-CLANG_DIR="$MAIN/toolchains/clang-17"
+CLANG_DIR="$MAIN/toolchains/clang"
 KERNEL_DIR=$(pwd)
 OUT_DIR="$KERNEL_DIR/out"
 ZIMAGE_DIR="$OUT_DIR/arch/arm64/boot"
@@ -27,7 +27,7 @@ check_clang() {
 if ! check_clang; then
     echo "No valid Clang found. Installing..."
     echo "1. AOSP Clang (clang-r487747c)"
-    echo "2. Prelude Clang"
+    echo "2. ZyC Clang 22.0"
     read -p "Choose [1-2]: " clang_choice
 
     case "$clang_choice" in
@@ -40,7 +40,12 @@ if ! check_clang; then
             rm -f "$MAIN/$ARCHIVE_NAME"
             ;;
         2)
-            git clone --depth=1 https://gitlab.com/jjpprrrr/prelude-clang.git "$CLANG_DIR" || exit 1
+            CLANG_URL="https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250924-release/Clang-22.0.0git-20250924.tar.gz"
+            ARCHIVE_NAME="clang.tar.gz"
+            mkdir -p "$CLANG_DIR"
+            wget -P "$MAIN" "$CLANG_URL" -O "$MAIN/$ARCHIVE_NAME" || exit 1
+            tar -xf "$MAIN/$ARCHIVE_NAME" -C "$CLANG_DIR" || exit 1
+            rm -f "$MAIN/$ARCHIVE_NAME"
             ;;
         *)
             echo "Invalid choice. Exiting..."
@@ -55,35 +60,9 @@ if ! check_clang; then
 fi
 
 # Set up toolchain
-export LD=ld.lld
 export ARCH=arm64
 export SUBARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
-
-# Build flags
-MAKE_OPTS="
-    CC=clang
-    STRIP=llvm-strip
-    LD=ld.lld
-    AR=llvm-ar
-    NM=llvm-nm
-    OBJCOPY=llvm-objcopy
-    OBJDUMP=llvm-objdump
-    HOSTCC=clang
-    HOSTCXX=clang++
-    HOSTAR=llvm-ar
-    HOSTLD=ld.lld
-    LLVM=1
-    LLVM_IAS=1
-    $INCLUDE_PATHS
-"
-
-# Apply YYLLOC workaround
-echo "Applying YYLLOC workaround..."
-YYLL1="$KERNEL_DIR/scripts/dtc/dtc-lexer.lex.c_shipped"
-YYLL2="$KERNEL_DIR/scripts/dtc/dtc-lexer.l"
-[ -f "$YYLL1" ] && sed -i "s/extern YYLTYPE yylloc/YYLTYPE yylloc/g;s/YYLTYPE yylloc/extern YYLTYPE yylloc/g" "$YYLL1"
-[ -f "$YYLL2" ] && sed -i "s/extern YYLTYPE yylloc/YYLTYPE yylloc/g;s/YYLTYPE yylloc/extern YYLTYPE yylloc/g" "$YYLL2"
 
 # Start build process
 echo "**** Building with $KBUILD_COMPILER_STRING ****"
@@ -102,27 +81,24 @@ export CONFIG_BTFM_SLIM=m
 export CONFIG_BT_HW_SECURE_DISABLE=y
 
 # Build kernel
-make O="$OUT_DIR" $KERNEL_DEFCONFIG $MAKE_OPTS || exit 1
-make -j$(nproc --all) O="$OUT_DIR" $MAKE_OPTS || exit 1
+make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="-w" $KERNEL_DEFCONFIG || exit 1
+make -j$(nproc --all) O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="-w" || exit 1
 
 # Build modules
 BUILD_HAS_MODULES=$(grep "=m" "$OUT_DIR/.config" | wc -l)
 if [ $BUILD_HAS_MODULES -gt 0 ]; then
     echo "Building modules..."
-    make -j$(nproc --all) O="$OUT_DIR" $MAKE_OPTS modules || exit 1
+    make -j$(nproc --all) O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="-w" modules || exit 1
 
     # Install modules to temporary directory
     MODULES_DIR="$OUT_DIR/modules_temp"
     rm -rf "$MODULES_DIR"
     mkdir -p "$MODULES_DIR"
-    make O="$OUT_DIR" INSTALL_MOD_PATH="$MODULES_DIR" INSTALL_MOD_STRIP=1 modules_install || exit 1
+    make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="-w" INSTALL_MOD_PATH="$MODULES_DIR" INSTALL_MOD_STRIP=1 modules_install || exit 1
 
     # Clean up symlinks
     find "$MODULES_DIR" -type l -delete
 fi
-
-# Restore YYLL files if in git repo
-[ -d "$KERNEL_DIR"/.git ] && git restore "$YYLL1" "$YYLL2" 2>/dev/null || true
 
 # Clean up old kernel zip files
 echo "Cleaning up old kernel zip files..."
