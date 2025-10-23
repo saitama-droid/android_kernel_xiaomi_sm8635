@@ -93,7 +93,6 @@ fi
 unset rc snapshot_status
 
 # Extract kernel version info
-strings ${home}/Image 2>/dev/null | grep -E -m1 'Linux version.*#' > ${home}/vertmp
 kernel_name=$(basename "$ZIPFILE" .zip)
 
 # Fix unable to mount image as read-write in recovery
@@ -107,92 +106,73 @@ is_mounted /vendor_dlkm || \
 	mount /vendor_dlkm -o ro || mount /dev/block/mapper/vendor_dlkm${slot} /vendor_dlkm -o ro || \
 		abort "! Failed to mount /vendor_dlkm"
 
-# Update detection for vendor_dlkm
-skip_vendor_update_flag=false
-
-if [ -f /vendor_dlkm/lib/modules/vertmp ]; then
-	current_ver=$(cat /vendor_dlkm/lib/modules/vertmp)
-	new_ver=$(cat ${home}/vertmp)
-	
-	[ "$current_ver" == "$new_ver" ] && skip_vendor_update_flag=true
-fi
+# Always update vendor_dlkm to ensure modules are current
 umount /vendor_dlkm
 
-if $skip_vendor_update_flag; then
-	ui_print "- Vendor modules already up to date, skipping vendor_dlkm update"
+# Dump vendor_dlkm partition image
+ui_print "- Dumping vendor_dlkm partition..."
+dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
+
+ui_print "- Unpacking /vendor_dlkm partition..."
+extract_vendor_dlkm_dir=${home}/_extract_vendor_dlkm
+mkdir -p $extract_vendor_dlkm_dir
+vendor_dlkm_is_ext4=false
+extract_erofs ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir || vendor_dlkm_is_ext4=true
+sync
+
+if $vendor_dlkm_is_ext4; then
+	ui_print "- /vendor_dlkm partition is ext4 file system"
+	mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o ro -t ext4 || \
+		abort "! Unsupported file system!"
+	vendor_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_vendor_dlkm_dir\$" | awk '{print $4}')
+	umount $extract_vendor_dlkm_dir
+
+	if [ "$vendor_dlkm_free_space" -lt 10240 ]; then
+		ui_print "- Insufficient free space, attempting resize..."
+		super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
+		[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
+			abort "! Super device does not have enough free space!"
+
+		${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
+		vendor_dlkm_current_size_mb=$(du -bm ${home}/vendor_dlkm.img | awk '{print $1}')
+		vendor_dlkm_target_size_mb=$((vendor_dlkm_current_size_mb + 10))
+		${bin}/resize2fs ${home}/vendor_dlkm.img "${vendor_dlkm_target_size_mb}M" || \
+			abort "! Failed to resize vendor_dlkm image!"
+		ui_print "- Resized to ${vendor_dlkm_target_size_mb}M"
+		${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
+
+		unset super_free_space vendor_dlkm_current_size_mb vendor_dlkm_target_size_mb
+	fi
+
+	mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o rw -t ext4 || \
+		abort "! Failed to mount vendor_dlkm.img as read-write!"
+
+	extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/lib/modules
 else
-	# Dump vendor_dlkm partition image
-	ui_print "- Dumping vendor_dlkm partition..."
-	dd if=/dev/block/mapper/vendor_dlkm${slot} of=${home}/vendor_dlkm.img
-
-	ui_print "- Unpacking /vendor_dlkm partition..."
-	extract_vendor_dlkm_dir=${home}/_extract_vendor_dlkm
-	mkdir -p $extract_vendor_dlkm_dir
-	vendor_dlkm_is_ext4=false
-	extract_erofs ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir || vendor_dlkm_is_ext4=true
-	sync
-
-	if $vendor_dlkm_is_ext4; then
-		ui_print "- /vendor_dlkm partition is ext4 file system"
-		mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o ro -t ext4 || \
-			abort "! Unsupported file system!"
-		vendor_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_vendor_dlkm_dir\$" | awk '{print $4}')
-		umount $extract_vendor_dlkm_dir
-
-		if [ "$vendor_dlkm_free_space" -lt 10240 ]; then
-			ui_print "- Insufficient free space, attempting resize..."
-			super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
-			[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
-				abort "! Super device does not have enough free space!"
-
-			${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
-			vendor_dlkm_current_size_mb=$(du -bm ${home}/vendor_dlkm.img | awk '{print $1}')
-			vendor_dlkm_target_size_mb=$((vendor_dlkm_current_size_mb + 10))
-			${bin}/resize2fs ${home}/vendor_dlkm.img "${vendor_dlkm_target_size_mb}M" || \
-				abort "! Failed to resize vendor_dlkm image!"
-			ui_print "- Resized to ${vendor_dlkm_target_size_mb}M"
-			${bin}/e2fsck -f -y ${home}/vendor_dlkm.img
-
-			unset super_free_space vendor_dlkm_current_size_mb vendor_dlkm_target_size_mb
-		fi
-
-		mount ${home}/vendor_dlkm.img $extract_vendor_dlkm_dir -o rw -t ext4 || \
-			abort "! Failed to mount vendor_dlkm.img as read-write!"
-
-		extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/lib/modules
-	else
-		extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules
-	fi
-
-	# Update vendor modules (from _modules_vendor directory)
-	ui_print "- Updating /vendor_dlkm modules..."
-	if [ -d "${home}/_modules_vendor" ]; then
-		cp -f ${home}/_modules_vendor/*.ko ${extract_vendor_dlkm_modules_dir}/
-		ui_print "  Copied $(ls ${home}/_modules_vendor/*.ko 2>/dev/null | wc -l) vendor modules"
-	else
-		ui_print "  Warning: _modules_vendor directory not found, skipping vendor modules"
-	fi
-	cp -f ${home}/vertmp ${extract_vendor_dlkm_modules_dir}/vertmp
-	sync
-
-	if $vendor_dlkm_is_ext4; then
-		set_perm 0 0 0644 ${extract_vendor_dlkm_modules_dir}/vertmp
-		chcon u:object_r:vendor_file:s0 ${extract_vendor_dlkm_modules_dir}/vertmp
-		umount $extract_vendor_dlkm_dir
-	else
-		cat ${extract_vendor_dlkm_dir}/config/vendor_dlkm_fs_config | grep -q 'lib/modules/vertmp' || \
-			echo 'vendor_dlkm/lib/modules/vertmp 0 0 0644' >> ${extract_vendor_dlkm_dir}/config/vendor_dlkm_fs_config
-		cat ${extract_vendor_dlkm_dir}/config/vendor_dlkm_file_contexts | grep -q 'lib/modules/vertmp' || \
-			echo '/vendor_dlkm/lib/modules/vertmp u:object_r:vendor_file:s0' >> ${extract_vendor_dlkm_dir}/config/vendor_dlkm_file_contexts
-		ui_print "- Repacking /vendor_dlkm image..."
-		rm -f ${home}/vendor_dlkm.img
-		mkfs_erofs ${extract_vendor_dlkm_dir}/vendor_dlkm ${home}/vendor_dlkm.img || \
-			abort "! Failed to repack the vendor_dlkm image!"
-		rm -rf ${extract_vendor_dlkm_dir}
-	fi
-
-	unset vendor_dlkm_is_ext4 vendor_dlkm_free_space extract_vendor_dlkm_dir extract_vendor_dlkm_modules_dir
+	extract_vendor_dlkm_modules_dir=${extract_vendor_dlkm_dir}/vendor_dlkm/lib/modules
 fi
+
+# Update vendor modules (from _modules_vendor directory)
+ui_print "- Updating /vendor_dlkm modules..."
+if [ -d "${home}/_modules_vendor" ] && [ "$(ls -A ${home}/_modules_vendor/*.ko 2>/dev/null)" ]; then
+	cp -f ${home}/_modules_vendor/*.ko ${extract_vendor_dlkm_modules_dir}/
+	ui_print "  Copied $(ls ${home}/_modules_vendor/*.ko 2>/dev/null | wc -l) vendor modules"
+else
+	ui_print "  Warning: _modules_vendor directory not found or empty, skipping vendor modules"
+fi
+sync
+
+if $vendor_dlkm_is_ext4; then
+	umount $extract_vendor_dlkm_dir
+else
+	ui_print "- Repacking /vendor_dlkm image..."
+	rm -f ${home}/vendor_dlkm.img
+	mkfs_erofs ${extract_vendor_dlkm_dir}/vendor_dlkm ${home}/vendor_dlkm.img || \
+		abort "! Failed to repack the vendor_dlkm image!"
+	rm -rf ${extract_vendor_dlkm_dir}
+fi
+
+unset vendor_dlkm_is_ext4 vendor_dlkm_free_space extract_vendor_dlkm_dir extract_vendor_dlkm_modules_dir
 
 ########## SYSTEM_DLKM PROCESSING ##########
 
@@ -202,101 +182,80 @@ is_mounted /system_dlkm || \
 	mount /system_dlkm -o ro || mount /dev/block/mapper/system_dlkm${slot} /system_dlkm -o ro || \
 		abort "! Failed to mount /system_dlkm"
 
-# Update detection for system_dlkm
-skip_system_update_flag=false
-
-if [ -f /system_dlkm/lib/modules/android16-6.1/vertmp ]; then
-	current_ver=$(cat /system_dlkm/lib/modules/android16-6.1/vertmp)
-	new_ver=$(cat ${home}/vertmp)
-	
-	[ "$current_ver" == "$new_ver" ] && skip_system_update_flag=true
-fi
+# Always update system_dlkm to ensure modules are current
 umount /system_dlkm
 
-if $skip_system_update_flag; then
-	ui_print "- System modules already up to date, skipping system_dlkm update"
+# Dump system_dlkm partition image
+ui_print "- Dumping system_dlkm partition..."
+dd if=/dev/block/mapper/system_dlkm${slot} of=${home}/system_dlkm.img
+
+ui_print "- Unpacking /system_dlkm partition..."
+extract_system_dlkm_dir=${home}/_extract_system_dlkm
+mkdir -p $extract_system_dlkm_dir
+system_dlkm_is_ext4=false
+extract_erofs ${home}/system_dlkm.img $extract_system_dlkm_dir || system_dlkm_is_ext4=true
+sync
+
+if $system_dlkm_is_ext4; then
+	ui_print "- /system_dlkm partition is ext4 file system"
+	mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o ro -t ext4 || \
+		abort "! Unsupported file system!"
+	system_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_system_dlkm_dir\$" | awk '{print $4}')
+	umount $extract_system_dlkm_dir
+
+	if [ "$system_dlkm_free_space" -lt 10240 ]; then
+		ui_print "- Insufficient free space, attempting resize..."
+		super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
+		[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
+			abort "! Super device does not have enough free space!"
+
+		${bin}/e2fsck -f -y ${home}/system_dlkm.img
+		system_dlkm_current_size_mb=$(du -bm ${home}/system_dlkm.img | awk '{print $1}')
+		system_dlkm_target_size_mb=$((system_dlkm_current_size_mb + 10))
+		${bin}/resize2fs ${home}/system_dlkm.img "${system_dlkm_target_size_mb}M" || \
+			abort "! Failed to resize system_dlkm image!"
+		ui_print "- Resized to ${system_dlkm_target_size_mb}M"
+		${bin}/e2fsck -f -y ${home}/system_dlkm.img
+
+		unset super_free_space system_dlkm_current_size_mb system_dlkm_target_size_mb
+	fi
+
+	mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o rw -t ext4 || \
+		abort "! Failed to mount system_dlkm.img as read-write!"
+
+	extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/lib/modules/android16-6.1
 else
-	# Dump system_dlkm partition image
-	ui_print "- Dumping system_dlkm partition..."
-	dd if=/dev/block/mapper/system_dlkm${slot} of=${home}/system_dlkm.img
-
-	ui_print "- Unpacking /system_dlkm partition..."
-	extract_system_dlkm_dir=${home}/_extract_system_dlkm
-	mkdir -p $extract_system_dlkm_dir
-	system_dlkm_is_ext4=false
-	extract_erofs ${home}/system_dlkm.img $extract_system_dlkm_dir || system_dlkm_is_ext4=true
-	sync
-
-	if $system_dlkm_is_ext4; then
-		ui_print "- /system_dlkm partition is ext4 file system"
-		mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o ro -t ext4 || \
-			abort "! Unsupported file system!"
-		system_dlkm_free_space=$(df -k | grep -E "[[:space:]]$extract_system_dlkm_dir\$" | awk '{print $4}')
-		umount $extract_system_dlkm_dir
-
-		if [ "$system_dlkm_free_space" -lt 10240 ]; then
-			ui_print "- Insufficient free space, attempting resize..."
-			super_free_space=$(${bin}/lptools_static free | grep '^Free space' | awk '{print $NF}')
-			[ "$super_free_space" -gt "$((10 * 1024 * 1024))" ] || \
-				abort "! Super device does not have enough free space!"
-
-			${bin}/e2fsck -f -y ${home}/system_dlkm.img
-			system_dlkm_current_size_mb=$(du -bm ${home}/system_dlkm.img | awk '{print $1}')
-			system_dlkm_target_size_mb=$((system_dlkm_current_size_mb + 10))
-			${bin}/resize2fs ${home}/system_dlkm.img "${system_dlkm_target_size_mb}M" || \
-				abort "! Failed to resize system_dlkm image!"
-			ui_print "- Resized to ${system_dlkm_target_size_mb}M"
-			${bin}/e2fsck -f -y ${home}/system_dlkm.img
-
-			unset super_free_space system_dlkm_current_size_mb system_dlkm_target_size_mb
-		fi
-
-		mount ${home}/system_dlkm.img $extract_system_dlkm_dir -o rw -t ext4 || \
-			abort "! Failed to mount system_dlkm.img as read-write!"
-
-		extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/lib/modules/android16-6.1
-	else
-		extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/system_dlkm/lib/modules/android16-6.1
-	fi
-
-	# Create android16-6.1 directory if it doesn't exist
-	mkdir -p ${extract_system_dlkm_modules_dir}
-
-	# Update system modules (from _modules_system directory)
-	ui_print "- Updating /system_dlkm modules..."
-	if [ -d "${home}/_modules_system" ]; then
-		cp -f ${home}/_modules_system/*.ko ${extract_system_dlkm_modules_dir}/
-		ui_print "  Copied $(ls ${home}/_modules_system/*.ko 2>/dev/null | wc -l) system modules"
-	else
-		ui_print "  Warning: _modules_system directory not found, skipping system modules"
-	fi
-	cp -f ${home}/vertmp ${extract_system_dlkm_modules_dir}/vertmp
-	sync
-
-	if $system_dlkm_is_ext4; then
-		set_perm 0 0 0644 ${extract_system_dlkm_modules_dir}/vertmp
-		chcon u:object_r:system_file:s0 ${extract_system_dlkm_modules_dir}/vertmp
-		umount $extract_system_dlkm_dir
-	else
-		cat ${extract_system_dlkm_dir}/config/system_dlkm_fs_config | grep -q 'lib/modules/android16-6.1/vertmp' || \
-			echo 'system_dlkm/lib/modules/android16-6.1/vertmp 0 0 0644' >> ${extract_system_dlkm_dir}/config/system_dlkm_fs_config
-		cat ${extract_system_dlkm_dir}/config/system_dlkm_file_contexts | grep -q 'lib/modules/android16-6.1/vertmp' || \
-			echo '/system_dlkm/lib/modules/android16-6.1/vertmp u:object_r:system_file:s0' >> ${extract_system_dlkm_dir}/config/system_dlkm_file_contexts
-		ui_print "- Repacking /system_dlkm image..."
-		rm -f ${home}/system_dlkm.img
-		mkfs_erofs ${extract_system_dlkm_dir}/system_dlkm ${home}/system_dlkm.img || \
-			abort "! Failed to repack the system_dlkm image!"
-		rm -rf ${extract_system_dlkm_dir}
-	fi
-
-	unset system_dlkm_is_ext4 system_dlkm_free_space extract_system_dlkm_dir extract_system_dlkm_modules_dir
+	extract_system_dlkm_modules_dir=${extract_system_dlkm_dir}/system_dlkm/lib/modules/android16-6.1
 fi
 
-unset skip_vendor_update_flag skip_system_update_flag kernel_name
+# Create android16-6.1 directory if it doesn't exist
+mkdir -p ${extract_system_dlkm_modules_dir}
+
+# Update system modules (from _modules_system directory)
+ui_print "- Updating /system_dlkm modules..."
+if [ -d "${home}/_modules_system" ] && [ "$(ls -A ${home}/_modules_system/*.ko 2>/dev/null)" ]; then
+	cp -f ${home}/_modules_system/*.ko ${extract_system_dlkm_modules_dir}/
+	ui_print "  Copied $(ls ${home}/_modules_system/*.ko 2>/dev/null | wc -l) system modules"
+else
+	ui_print "  Warning: _modules_system directory not found or empty, skipping system modules"
+fi
+sync
+
+if $system_dlkm_is_ext4; then
+	umount $extract_system_dlkm_dir
+else
+	ui_print "- Repacking /system_dlkm image..."
+	rm -f ${home}/system_dlkm.img
+	mkfs_erofs ${extract_system_dlkm_dir}/system_dlkm ${home}/system_dlkm.img || \
+		abort "! Failed to repack the system_dlkm image!"
+	rm -rf ${extract_system_dlkm_dir}
+fi
+
+unset system_dlkm_is_ext4 system_dlkm_free_space extract_system_dlkm_dir extract_system_dlkm_modules_dir
 
 ########## CUSTOM END ##########
 
-# Flash updated /vendor_dlkm image (only if updated)
+# Flash updated /vendor_dlkm image
 vendor_dlkm_flashed=false
 if [ -f ${home}/vendor_dlkm.img ]; then
 	ui_print "- Flashing vendor_dlkm partition..."
@@ -304,7 +263,7 @@ if [ -f ${home}/vendor_dlkm.img ]; then
 	vendor_dlkm_flashed=true
 fi
 
-# Flash updated /system_dlkm image (only if updated)
+# Flash updated /system_dlkm image
 system_dlkm_flashed=false
 if [ -f ${home}/system_dlkm.img ]; then
 	ui_print "- Flashing system_dlkm partition..."
@@ -315,29 +274,6 @@ fi
 # Flash kernel to boot
 boot_flashed=false
 flash_boot && boot_flashed=true
-
-# Flash DTB to vendor_boot (only if dtb is present)
-#unzip -o "$ZIPFILE" dtb -d "$home" >/dev/null 2>&1
-#if [ -f "$home/dtb" ]; then
-#  ui_print "- Found dtb blob, flashing to vendor_boot..."
-
-#  block=/dev/block/bootdevice/by-name/vendor_boot;
-#  is_slot_device=1;
-#  ramdisk_compression=auto;
-#  patch_vbmeta_flag=auto;
-
-#  reset_ak;
-#  dump_boot;
-
-  # Replace existing DTB
-#  cp -f "$home/dtb" "$split_img/dtb"
-
-#  write_boot;
-#else
-#  ui_print "! dtb blob not found, skipping vendor_boot flash"
-#fi
-
-#flash_dtbo
 
 # Recovery instructions (only show if all operations completed)
 if $boot_flashed && ($vendor_dlkm_flashed || $system_dlkm_flashed); then
