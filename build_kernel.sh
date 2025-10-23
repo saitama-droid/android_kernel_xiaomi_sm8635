@@ -89,6 +89,18 @@ YYLL2="$KERNEL_DIR/scripts/dtc/dtc-lexer.l"
 echo "**** Building with $KBUILD_COMPILER_STRING ****"
 echo "**** Defconfig: $KERNEL_DEFCONFIG ****"
 
+# Audio module configuration
+export MODNAME=audio_dlkm
+export BOARD_PLATFORM=pineapple
+export TARGET_BOARD_PLATFORM=pineapple
+export CONFIG_SND_SOC_PINEAPPLE=m
+export CONFIG_SND_SOC_QDSP6V2=m
+
+# BT module configuration
+export CONFIG_MSM_BT_POWER=m
+export CONFIG_BTFM_SLIM=m
+export CONFIG_BT_HW_SECURE_DISABLE=y
+
 # Build kernel
 make O="$OUT_DIR" $KERNEL_DEFCONFIG $MAKE_OPTS || exit 1
 make -j$(nproc --all) O="$OUT_DIR" $MAKE_OPTS || exit 1
