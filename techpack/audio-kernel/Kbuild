@@ -1,1 +1,17 @@
+# Determine build type
+ifeq ($(MODNAME),)
+    KERNEL_BUILD := 1
+else
+    KERNEL_BUILD := 0
+endif
+
+# For external module builds, AUDIO_ROOT is the absolute source path
+ifeq ($(KERNEL_BUILD), 0)
+    AUDIO_ROOT := $(shell cd $(srctree)/$(src) && pwd)
+endif
+
+# Export so subdirectories can use it
+export AUDIO_ROOT
+export KERNEL_BUILD
+
 obj-y := dsp/ ipc/ soc/ asoc/ asoc/codecs/ asoc/codecs/lpass-cdc/ asoc/codecs/bolero/ asoc/codecs/wcd939x/ asoc/codecs/wsa884x/ asoc/codecs/wcd938x/ asoc/codecs/wsa883x/ asoc/codecs/wcd937x/ asoc/codecs/wcd9378/ asoc/codecs/pa_combine/ asoc/codecs/fs19xx/
