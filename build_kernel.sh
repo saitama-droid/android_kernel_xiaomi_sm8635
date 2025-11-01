@@ -74,7 +74,7 @@ make -j$(nproc --all) O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="-w" || ex
 
 # Clean up old kernel zip files
 echo "Cleaning up old kernel zip files..."
-find "$KERNEL_DIR" -maxdepth 1 -type f -name "Asgard-Peridot-*.zip" -exec rm -v {} \;
+find "$KERNEL_DIR" -maxdepth 1 -type f -name "Asgard-1.2-Peridot-*.zip" -exec rm -v {} \;
 
 # Create temporary anykernel directory
 TIME=$(date "+%Y%m%d-%H%M%S")
@@ -101,7 +101,7 @@ fi
 
 # Create zip file in kernel root directory
 echo "Creating zip package..."
-ZIP_NAME="Asgard-Peridot-$TIME.zip"
+ZIP_NAME="Asgard-1.2-Peridot-$TIME.zip"
 cd "$TEMP_ANY_KERNEL_DIR"
 zip -r9 "$KERNEL_DIR/$ZIP_NAME" ./*
 cd ..
